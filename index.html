@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <style>
+        body {
+            position: relative;
+        }
+
+        #panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(202, 202, 202, 0.53);
+            font-size: 15px;
+
+        }
+
+        ul li {
+            list-style-type: none;
+            line-height: 21px;
+        }
+
+        a {
+            color: orange;
+        }
+
+        a:hover {
+            color: #3335ff;
+        }
+    </style>
+</head>
+<body>
+<div id="container"></div>
+<div id="panel">
+    <ul>
+        <li><a id="changeColor" href="javascript:;">车身颜色</a></li>
+        <li><a id="changeStyle" href="javascript:;">车身样式2</a> <a id="changeStyle2" href="javascript:;">车身样式2</a> <a
+                id="changeStyle3" href="javascript:;">恢复原始</a></li>
+        <li><a id="changeMirror" href="javascript:;">其他颜色</a></li>
+    </ul>
+</div>
+</body>
+<script src="js/three.js"></script>
+<script src="js/ctm.js"></script>
+<script src="js/lzma.js"></script>
+<script src="js/CTMLoader.js"></script>
+<script src="js/TrackballControls.js"></script>
+<script>
+    var Camera, Scene, Renderer, Controls;
+    var Width = window.innerWidth, Height = window.innerHeight;
+    var BodyMesh, MirrorMesh, orgBody;
+    function init() {
+        var container = document.getElementById('container');
+        //场景
+        Scene = new THREE.Scene();
+        //渲染器
+        Renderer = new THREE.WebGLRenderer({antialias: true});
+        Renderer.setPixelRatio(window.devicePixelRatio);
+        Renderer.setSize(Width, Height);
+        container.appendChild(Renderer.domElement);
+        //相机
+        Camera = new THREE.PerspectiveCamera(50, Width / Height, 1, 200);
+        Camera.position.set(10, 40, 170);
+        var ambient = new THREE.AmbientLight(0xffffff);
+        Scene.add(ambient);
+        //加入模型
+        var loader = new THREE.CTMLoader();
+        loader.loadParts('model/camaro.js', function (geometries, materials) {
+            hackMaterials(materials);
+            for (var i = 0; i < geometries.length; i++) {
+                var mesh = new THREE.Mesh(geometries[i], materials[i]);
+                Scene.add(mesh);
+            }
+        });
+        //控制器
+        Controls = new THREE.TrackballControls(Camera);
+        Controls.rotateSpeed = 1.0;
+        Controls.zoomSpeed = 1.2;
+        Controls.panSpeed = 0.2;
+        Controls.noZoom = false;
+        Controls.noPan = false;
+        Controls.staticMoving = false;
+        Controls.dynamicDampingFactor = 0.3;
+        Controls.minDistance = 5 * 1.1;
+        Controls.maxDistance = 5 * 100;
+
+    }
+    function animate() {
+        requestAnimationFrame(animate);
+        Renderer.render(Scene, Camera);
+        Controls.update();
+    }
+    function hackMaterials(materials) {
+        console.log(materials);
+        var mm;
+        for (var i = 0; i < materials.length; i++) {
+            var m = materials[i];
+            if (m.name.indexOf("Body") !== -1) {
+                console.log(m)
+                orgBody = m.map;
+                mm = new THREE.MeshBasicMaterial({map: m.map});
+                mm.combine = THREE.MixOperation;
+                mm.reflectivity = 0.75;
+                materials[i] = mm;
+                BodyMesh = materials[i];
+
+            } else if (m.name.indexOf("mirror") !== -1) {
+
+                mm = new THREE.MeshBasicMaterial({map: m.map});
+                console.log('mirror');
+                mm.combine = THREE.MultiplyOperation;
+
+                materials[i] = mm;
+                MirrorMesh = materials[i]
+
+            } else if (m.name.indexOf("glass") !== -1) {
+                console.log('glass');
+                mm = new THREE.MeshPhongMaterial({map: m.map});
+
+                mm.color.copy(m.color);
+                mm.combine = THREE.MixOperation;
+                mm.reflectivity = 0.25;
+                mm.opacity = m.opacity;
+                mm.transparent = true;
+
+                materials[i] = mm;
+
+            } else if (m.name.indexOf("Material.001") !== -1) {
+                console.log('Material');
+                mm = new THREE.MeshPhongMaterial({map: m.map});
+
+                mm.shininess = 30;
+                mm.color.setHex(0x404040);
+                mm.metal = true;
+                materials[i] = mm;
+
+            }
+
+            materials[i].side = THREE.DoubleSide;
+
+        }
+
+    }
+    init();
+    animate();
+
+    var changeColor = document.getElementById('changeColor');
+    var changeStyle = document.getElementById('changeStyle');
+    var changeStyle2 = document.getElementById('changeStyle2');
+    var changeStyle3 = document.getElementById('changeStyle3');
+    var changeMirror = document.getElementById('changeMirror');
+    changeColor.onclick = function () {
+        var i = Math.random();
+        BodyMesh.color.setHex('0x' + parseInt(i * 1000000))
+    }
+    changeStyle.onclick = function () {
+
+        var texture = THREE.ImageUtils.loadTexture('crate.gif');
+        BodyMesh.map = texture;
+    }
+    changeStyle2.onclick = function () {
+        var texture = THREE.ImageUtils.loadTexture('brick_bump.jpg');
+        BodyMesh.map = texture;
+    }
+    changeStyle3.onclick = function () {
+        BodyMesh.map = orgBody;
+    }
+    changeMirror.onclick = function () {
+        var i = Math.random();
+        MirrorMesh.color.setHex('0x' + parseInt(i * 1000000))
+    }
+</script>
+</html>
